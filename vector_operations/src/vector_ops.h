@@ -6,15 +6,6 @@ namespace task {
     const double eps = 1e-7;
 
     template <typename T>
-    T gcd(T lhs, T rhs) {
-        while (lhs && rhs) {
-            lhs %= rhs;
-            std::swap(lhs, rhs);
-        }
-        return lhs + rhs;
-    }
-
-    template <typename T>
     std::vector<T> operator+(const std::vector<T>& lhs, const std::vector<T>& rhs) {
         std::vector<T> answer(lhs.size());
 
@@ -66,13 +57,35 @@ namespace task {
     template <typename T>
     std::vector<T> operator%(const std::vector<T>& lhs, const std::vector<T>& rhs) {
         return std::vector<T> {
-            lhs[1] * rhs[2] - lhs[2] * rhs[1],
-            -(lhs[0] * rhs[2] - lhs[2] * rhs[0]),
-            lhs[0] * rhs[1] - lhs[1] * rhs[0]
+                lhs[1] * rhs[2] - lhs[2] * rhs[1],
+                -(lhs[0] * rhs[2] - lhs[2] * rhs[0]),
+                lhs[0] * rhs[1] - lhs[1] * rhs[0]
         };
     }
 
+    bool is_zero(const std::vector<int>& v) {
+        for (size_t i = 0; i < v.size(); ++i) {
+            if (v[i] != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool is_zero(const std::vector<double>& v) {
+        for (size_t i = 0; i < v.size(); ++i) {
+            if (v[i] >= eps) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool operator||(const std::vector<int>& lhs, const std::vector<int>& rhs) {
+        if (is_zero(lhs) || is_zero(rhs)) {
+            return true;
+        }
+
         for (size_t i = 1; i < lhs.size(); ++i) {
             if (rhs[i] * lhs[i - 1] != rhs[i - 1] * lhs[i]) {
                 return false;
@@ -82,8 +95,12 @@ namespace task {
     }
 
     bool operator||(const std::vector<double>& lhs, const std::vector<double>& rhs) {
+        if (is_zero(lhs) || is_zero(rhs)) {
+            return true;
+        }
+
         for (size_t i = 1; i < lhs.size(); ++i) {
-            if (abs((rhs[i] / lhs[i]) - (rhs[i - 1] / lhs[i - 1])) > eps) {
+            if (fabs(rhs[i] * lhs[i - 1] - rhs[i - 1] * lhs[i]) >= eps) {
                 return false;
             }
         }
