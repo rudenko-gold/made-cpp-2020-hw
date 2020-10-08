@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
         ASSERT_TRUE_MSG(mat1[0][1] == 300., "Operator []")
         ASSERT_TRUE_MSG(mat1[1][0] == 200., "Operator []")
 
-        auto partial = mat1[1];
+        auto& partial = mat1[1];
         partial[1] = 400.;
 
         ASSERT_TRUE_MSG(mat1[1][1] == 400., "Operator []")

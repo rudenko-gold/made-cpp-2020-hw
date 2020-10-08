@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <iostream>
+#include <cmath>
+#include <algorithm>
 
 
 namespace task {
@@ -12,6 +14,27 @@ const double EPS = 1e-6;
 class OutOfBoundsException : public std::exception {};
 class SizeMismatchException : public std::exception {};
 
+class Row {
+    friend class Matrix;
+
+public:
+    double& operator[](size_t col);
+    const double& operator[](size_t col) const;
+
+    size_t size() const;
+
+    Row(const Row& copy);
+
+    ~Row();
+
+private:
+    Row();
+    explicit Row(size_t size);
+    Row& operator=(const Row& copy);
+
+    size_t size_;
+    double* data;
+};
 
 class Matrix {
 
@@ -27,8 +50,8 @@ public:
     void set(size_t row, size_t col, const double& value);
     void resize(size_t new_rows, size_t new_cols);
 
-    /* ??? */ operator[](size_t row);
-    /* ??? */ operator[](size_t row) const;
+    Row& operator[](size_t row);
+    const Row& operator[](size_t row) const;
 
     Matrix& operator+=(const Matrix& a);
     Matrix& operator-=(const Matrix& a);
@@ -54,7 +77,9 @@ public:
     bool operator==(const Matrix& a) const;
     bool operator!=(const Matrix& a) const;
 
-    // Your code goes here...
+private:
+    Row* data;
+    std::pair<size_t, size_t> dim_size;
 
 };
 
