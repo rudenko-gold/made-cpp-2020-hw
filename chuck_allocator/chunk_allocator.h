@@ -3,15 +3,14 @@
 template <typename T>
 class ChunkAllocator;
 
-template <typename T>
+template <typename Allocator>
 class Chunk {
 public:
-    friend ChunkAllocator<T>;
+    friend ChunkAllocator<typename Allocator::value_type>;
 
-    Chunk(size_t n, Chunk* prev = nullptr) {
-        this->data = (T*)(new uint8_t(n * sizeof(T)));
+    Chunk(size_t n) {
+        this->data = (Allocator::pointer)(new uint8_t(n * sizeof(Allocator::value_type)));
         this->free = this->data;
-        this->prev = prev;
         free_size = n;
     }
 
@@ -19,10 +18,10 @@ public:
         return n <= free_size;
     }
 
-    T* allocate(size_t n) {
-        T* result = free;
+    typename Allocator::pointer allocate(typename Allocator::size_type n) {
+        typename Allocator::pointer result = free;
 
-        free += n * sizeof(T);
+        free += n * sizeof(Allocator::value_type);
         free_size -= n;
 
         return result;
@@ -31,11 +30,12 @@ public:
     ~Chunk() {
         delete[] (uint8_t*) data;
     }
+
 private:
-    T* data;
-    size_t free_size;
-    T* free;
-    Chunk* prev;
+    typename Allocator::pointer data;
+    typename Allocator::size_type free_size;
+    typename Allocator::pointer free;
+    Chunk* next;
 };
 
 template <typename T>
@@ -50,13 +50,15 @@ public:
     using difference_type = std::ptrdiff_t;
     template <class U> struct rebind { typedef ChunkAllocator<U> other; };
 
-    ChunkAllocator(size_t chunk_n = 1024u) : chunk_n(chunk_n) {
-        last = new Chunk<T>(chunk_n);
-        copy_counter = new size_t(1);
+    static const size_type chunk_n = 1024u;
+
+    ChunkAllocator() {
+        head = new Chunk<ChunkAllocator>(chunk_n);
+        copy_counter = new size_type(1);
     }
 
-    ChunkAllocator(const ChunkAllocator& other) : chunk_n(other.chunk_n) {
-        this->last = other.last;
+    ChunkAllocator(const ChunkAllocator& other) {
+        this->head = other.head;
         this->copy_counter = other.copy_counter;
 
         ++(*this->copy_counter);
@@ -68,11 +70,12 @@ public:
         }
 
         if (*copy_counter == 1) {
-            while (last) {
-                Chunk<T>* chunk = last;
-                last = last->prev;
-                delete chunk;
+            while (head) {
+                Chunk<ChunkAllocator>* to_delete = head;
+                head = head->next;
+                delete to_delete;
             }
+
             delete copy_counter;
         } else {
             copy_counter--;
@@ -82,45 +85,50 @@ public:
         return *this;
     }
 
-    T* allocate(const size_t n) {
+    pointer allocate(const size_type n) {
         if (n > chunk_n) {
             throw std::bad_alloc();
         }
 
-        Chunk<T>* chunk = last;
+        Chunk<ChunkAllocator>* chunk = head;
 
-        while (chunk) {
+        while (chunk->next) {
             if (chunk->can_allocate(n)) {
                 return chunk->allocate(n);
             } else {
-                chunk = chunk->prev;
+                chunk = chunk->next;
             }
         }
 
-        Chunk<T> new_chunk = new Chunk(chunk_n, last);
-        this->last = new_chunk;
+        if (chunk->can_allocate(n)) {
+            return chunk->allocate(n);
+        } else {
+            Chunk<ChunkAllocator>* new_chunk = new Chunk<ChunkAllocator>(n);
+            chunk->next = new_chunk;
 
-        return this->last->allocate(chunk);
+            return new_chunk->allocate(n);
+        }
     }
 
-    void deallocate(T* ptr, const size_t n) {}
+    void deallocate(pointer ptr, const size_type n) {}
 
     template <typename ... Args>
-    void construct(T* p, const Args... args) {
-        return new (p) T(args...);
+    void construct(pointer p, const Args&&... args) {
+        return new (p) T(std::forward<Args>(args)...);
     }
 
-    void destroy(T* p) {
+    void destroy(pointer p) {
         p->~T();
     }
 
     ~ChunkAllocator() {
         if (*copy_counter == 1) {
-            while (last) {
-                Chunk<T>* chunk = last;
-                last = last->prev;
-                delete chunk;
+            while (head) {
+                Chunk<ChunkAllocator>* to_delete = head;
+                head = head->next;
+                delete to_delete;
             }
+
             delete copy_counter;
         } else {
             copy_counter--;
@@ -128,7 +136,6 @@ public:
     }
 
 private:
-    const size_t chunk_n;
-    Chunk<T>* last = nullptr;
-    size_t* copy_counter;
+    Chunk<ChunkAllocator>* head = nullptr;
+    size_type* copy_counter;
 };
